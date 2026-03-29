@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Webhook that syncs LAN Jobex Google Sheet → Framer CMS and publishes the site",
   "private": true,
+  "type": "module",
   "dependencies": {
     "framer-api": "latest",
     "googleapis": "^144.0.0"
