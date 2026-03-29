@@ -109,6 +109,7 @@ export default async function handler(req, res) {
     // 1. Get all CMS collections and find the jobs one
     console.log("📂 Fetching CMS collections...")
     const collections = await framer.getCollections()
+    console.log(`📂 Found ${collections.length} collections: ${collections.map(c => `"${c.name}"`).join(", ")}`)
     const jobsCollection = collections.find(
       (c) => c.name.toLowerCase() === COLLECTION_NAME
     )
