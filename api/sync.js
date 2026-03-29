@@ -1,31 +1,16 @@
 import { connect } from "framer-api"
 import { google } from "googleapis"
 
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
 const FRAMER_PROJECT_URL = "https://framer.com/projects/LAN-Main-Website--RTp7QUpJk29FQK4W6e5K-6CSFl"
 const SHEET_ID           = process.env.GOOGLE_SHEET_ID
 const COLLECTION_NAME    = "jobs"
 
 const COL = {
-  date:             0,
-  slug:             1,
-  jobId:            2,
-  jobTitle:         3,
-  companyName:      4,
-  coreSkillSet:     5,
-  ctcOffered:       6,
-  workexRequired:   7,
-  jdOrApplyLink:    8,
-  location:         9,
-  jobPosterName:    10,
-  jobPosterContact: 11,
-  posterEmail:      12,
-  whatsappYesNo:    13,
-  mailLink:         14,
-  jobLocationType:  15,
-  whatsappLink:     16,
-  created:          18,
-  edited:           19,
+  date: 0, slug: 1, jobId: 2, jobTitle: 3, companyName: 4,
+  coreSkillSet: 5, ctcOffered: 6, workexRequired: 7, jdOrApplyLink: 8,
+  location: 9, jobPosterName: 10, jobPosterContact: 11, posterEmail: 12,
+  whatsappYesNo: 13, mailLink: 14, jobLocationType: 15, whatsappLink: 16,
+  created: 18, edited: 19,
 }
 
 async function getSheetRows() {
@@ -48,7 +33,6 @@ function rowToFieldData(row) {
   const link = (i) => ({ type: "link",    value: get(i) })
   const bool = (i) => ({ type: "boolean", value: get(i).toLowerCase() === "yes" })
   const date = (i) => ({ type: "date",    value: parseDate(get(i)) })
-
   return {
     "job-title":          str(COL.jobTitle),
     "company-name":       str(COL.companyName),
@@ -78,85 +62,69 @@ function parseDate(raw) {
   return new Date(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`).toISOString()
 }
 
-// ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" })
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" })
 
-  const secret = req.headers["x-sync-secret"]
-  if (secret !== process.env.SYNC_SECRET) {
+  if (req.headers["x-sync-secret"] !== process.env.SYNC_SECRET) {
     return res.status(401).json({ error: "Unauthorized" })
   }
-
-  console.log("ENV CHECK — FRAMER_API_KEY set:", !!process.env.FRAMER_API_KEY, "len:", process.env.FRAMER_API_KEY?.length ?? 0)
-  console.log("ENV CHECK — GOOGLE_SHEET_ID:", process.env.GOOGLE_SHEET_ID ?? "MISSING")
-  console.log("ENV CHECK — SERVICE_ACCOUNT set:", !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
 
   let framer
   try {
     console.log("⏳ Connecting to Framer...")
     framer = await Promise.race([
       connect(FRAMER_PROJECT_URL, process.env.FRAMER_API_KEY),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("connect() timed out after 25s")), 25000)
-      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("connect() timeout")), 25000)),
     ])
     console.log("✅ Connected!")
 
-    console.log("📂 Fetching CMS collections...")
+    // Get existing slugs (just slugs, not full items — much faster)
     const collections = await framer.getCollections()
-    console.log(`📂 Found ${collections.length} collections: ${collections.map(c => `"${c.name}"`).join(", ")}`)
-
     const jobsCollection = collections.find((c) => c.name.toLowerCase() === COLLECTION_NAME)
-    if (!jobsCollection) {
-      throw new Error(`Collection "${COLLECTION_NAME}" not found. Available: ${collections.map(c => c.name).join(", ")}`)
-    }
+    if (!jobsCollection) throw new Error(`Collection "${COLLECTION_NAME}" not found. Available: ${collections.map(c=>c.name).join(", ")}`)
 
-    console.log("📋 Fetching existing CMS items...")
     const existingItems = await jobsCollection.getItems()
-    const existingBySlug = Object.fromEntries(existingItems.map((item) => [item.slug, item]))
-    console.log(`📋 ${existingItems.length} existing items`)
+    const existingSlugs = new Set(existingItems.map((item) => item.slug))
+    console.log(`📋 ${existingSlugs.size} existing slugs loaded`)
 
-    console.log("📊 Fetching Google Sheet rows...")
+    // Fetch sheet rows
     const rows = await getSheetRows()
-    console.log(`📊 ${rows.length} rows found`)
+    console.log(`📊 ${rows.length} sheet rows fetched`)
 
-    let created = 0, updated = 0, skipped = 0
+    // Only add NEW rows — skip existing ones entirely (much faster, avoids timeout)
     const itemsToAdd = []
+    let skipped = 0
 
     for (const row of rows) {
       const slug  = (row[COL.slug]     ?? "").toString().trim()
       const title = (row[COL.jobTitle] ?? "").toString().trim()
       const jobId = (row[COL.jobId]    ?? "").toString().trim()
       if (!slug || !title) { skipped++; continue }
-      const fieldData = rowToFieldData(row)
-      if (existingBySlug[slug]) {
-        await existingBySlug[slug].setAttributes({ fieldData })
-        updated++
-      } else {
-        itemsToAdd.push({ id: jobId || slug, slug, fieldData })
-        created++
-      }
+      if (existingSlugs.has(slug)) { skipped++; continue } // already in CMS
+      itemsToAdd.push({ id: jobId || slug, slug, fieldData: rowToFieldData(row) })
     }
 
-    if (itemsToAdd.length > 0) await jobsCollection.addItems(itemsToAdd)
-    console.log(`✅ Sync done — ${created} created, ${updated} updated, ${skipped} skipped`)
+    console.log(`➕ ${itemsToAdd.length} new items to add, ${skipped} skipped`)
 
-    console.log("🚀 Publishing...")
-    const publishResult = await framer.publish()
-    await framer.deploy(publishResult.deployment.id)
-    console.log("🌍 Deployed!")
+    if (itemsToAdd.length > 0) {
+      await jobsCollection.addItems(itemsToAdd)
+      console.log("✅ Items added!")
 
-    return res.status(200).json({ ok: true, created, updated, skipped, deployment: publishResult.deployment.id })
+      // Only publish if there's something new
+      const publishResult = await framer.publish()
+      await framer.deploy(publishResult.deployment.id)
+      console.log("🌍 Published and deployed!")
+
+      return res.status(200).json({ ok: true, created: itemsToAdd.length, skipped, deployment: publishResult.deployment.id })
+    }
+
+    console.log("ℹ️ No new items — skipping publish")
+    return res.status(200).json({ ok: true, created: 0, skipped, message: "No new items" })
 
   } catch (err) {
     console.error("❌ Error:", err?.message ?? String(err))
-    console.error("❌ Stack:", err?.stack ?? "no stack")
-    return res.status(500).json({ error: err?.message ?? String(err), stack: err?.stack ?? null })
+    return res.status(500).json({ error: err?.message ?? String(err) })
   } finally {
-    if (framer) {
-      try { await framer.disconnect() } catch (e) { console.error("disconnect error:", e?.message) }
-    }
+    if (framer) try { await framer.disconnect() } catch(e) {}
   }
 }
