@@ -177,9 +177,15 @@ export default async function handler(req, res) {
     })
 
   } catch (err) {
-    console.error("❌ Sync failed:", err)
-    return res.status(500).json({ error: err.message })
+    console.error("❌ Sync failed:", err?.message ?? err)
+    console.error("❌ Stack:", err?.stack ?? "no stack")
+    return res.status(500).json({
+      error: err?.message ?? String(err),
+      stack: err?.stack ?? null
+    })
   } finally {
-    if (framer) await framer.disconnect()
+    if (framer) {
+      try { await framer.disconnect() } catch(e) { console.error("disconnect error:", e?.message) }
+    }
   }
 }
