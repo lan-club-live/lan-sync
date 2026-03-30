@@ -1,14 +1,17 @@
 {
   "name": "lan-jobex-sync",
   "version": "1.0.0",
-  "description": "Webhook that syncs LAN Jobex Google Sheet → Framer CMS and publishes the site",
   "private": true,
   "type": "module",
+  "scripts": {
+    "start": "node api/sync.js"
+  },
   "dependencies": {
     "framer-api": "latest",
-    "googleapis": "^144.0.0"
+    "googleapis": "^144.0.0",
+    "dotenv": "^16.0.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   }
 }
