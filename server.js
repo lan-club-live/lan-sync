@@ -109,7 +109,7 @@ async function handleSync(res) {
       const title = (row[COL.jobTitle] ?? "").toString().trim()
       const jobId = (row[COL.jobId]    ?? "").toString().trim()
       if (!slug || !title || existingSlugs.has(slug)) { skipped++; continue }
-      itemsToAdd.push({ id: jobId || slug, slug, fieldData: rowToFieldData(row) })
+      itemsToAdd.push({ id: slug, slug, fieldData: rowToFieldData(row) })
     }
 
     console.log(`➕ ${itemsToAdd.length} new items, ${skipped} skipped`)
