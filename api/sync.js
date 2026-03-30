@@ -2,7 +2,6 @@ import "dotenv/config"
 import { connect } from "framer-api"
 import { google } from "googleapis"
 import http from "http"
-import fs from "fs"
 
 const FRAMER_PROJECT_URL = "https://framer.com/projects/LAN-Main-Website--RTp7QUpJk29FQK4W6e5K-6CSFl"
 const SHEET_ID           = process.env.GOOGLE_SHEET_ID
@@ -17,20 +16,9 @@ const COL = {
   created: 18, edited: 19,
 }
 
-function getServiceAccountCredentials() {
-  // Try env var first, then fall back to file
-  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
-    return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
-  }
-  if (fs.existsSync("/root/lan-sync/service-account.json")) {
-    return JSON.parse(fs.readFileSync("/root/lan-sync/service-account.json", "utf8"))
-  }
-  throw new Error("No Google service account credentials found")
-}
-
 async function getSheetRows() {
   const auth = new google.auth.GoogleAuth({
-    credentials: getServiceAccountCredentials(),
+    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   })
   const sheets = google.sheets({ version: "v4", auth })
@@ -78,18 +66,17 @@ function parseDate(raw) {
 }
 
 function sendJSON(res, status, data) {
-  const body = JSON.stringify(data)
   res.writeHead(status, { "Content-Type": "application/json" })
-  res.end(body)
+  res.end(JSON.stringify(data))
 }
 
-async function handleSync(req, res) {
+async function handleSync(res) {
   let framer
   try {
     console.log("⏳ Connecting to Framer...")
     framer = await Promise.race([
       connect(FRAMER_PROJECT_URL, process.env.FRAMER_API_KEY),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("connect() timeout")), 30000)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("connect() timeout after 30s")), 30000)),
     ])
     console.log("✅ Connected!")
 
@@ -126,7 +113,7 @@ async function handleSync(req, res) {
       return sendJSON(res, 200, { ok: true, created: itemsToAdd.length, skipped, deployment: publishResult.deployment.id })
     }
 
-    console.log("ℹ️ No new items")
+    console.log("ℹ️ No new items — skipping publish")
     return sendJSON(res, 200, { ok: true, created: 0, skipped, message: "No new items" })
 
   } catch (err) {
@@ -139,16 +126,16 @@ async function handleSync(req, res) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost`)
-  if (url.pathname !== "/api/sync") return sendJSON(res, 404, { error: "Not found" })
+  if (url.pathname !== "/sync") return sendJSON(res, 404, { error: "Not found" })
   if (req.method !== "POST") return sendJSON(res, 405, { error: "Method not allowed" })
   if (req.headers["x-sync-secret"] !== process.env.SYNC_SECRET) return sendJSON(res, 401, { error: "Unauthorized" })
-  await handleSync(req, res)
+  await handleSync(res)
 })
 
 server.listen(PORT, () => {
   console.log(`🚀 LAN Jobex sync server running on port ${PORT}`)
-  console.log(`   FRAMER_API_KEY set: ${!!process.env.FRAMER_API_KEY}`)
-  console.log(`   GOOGLE_SHEET_ID set: ${!!process.env.GOOGLE_SHEET_ID}`)
-  console.log(`   SYNC_SECRET set: ${!!process.env.SYNC_SECRET}`)
-  console.log(`   SERVICE_ACCOUNT set: ${!!process.env.GOOGLE_SERVICE_ACCOUNT_JSON}`)
+  console.log(`   FRAMER_API_KEY: ${!!process.env.FRAMER_API_KEY}`)
+  console.log(`   GOOGLE_SHEET_ID: ${!!process.env.GOOGLE_SHEET_ID}`)
+  console.log(`   SYNC_SECRET: ${!!process.env.SYNC_SECRET}`)
+  console.log(`   SERVICE_ACCOUNT: ${!!process.env.GOOGLE_SERVICE_ACCOUNT_JSON}`)
 })
