@@ -100,6 +100,8 @@ console.log(`📋 FIELD IDS: ${JSON.stringify(fields.map(f => f.id))}`)
 const existingItems = await jobsCollection.getItems()
 const existingSlugs = new Set(existingItems.map((item) => item.slug))
 console.log(`📋 ${existingSlugs.size} existing slugs`)
+console.log(`📋 FIELD NAMES: ${JSON.stringify(fields.map(f => ({id: f.id, name: f.name})))}`)
+    
 
     const rows = await getSheetRows()
     console.log(`📊 ${rows.length} sheet rows`)
