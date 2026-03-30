@@ -97,6 +97,8 @@ async function handleSync(res) {
 
     const jobsCollection = collections.find((c) => c.name.toLowerCase() === COLLECTION_NAME)
     if (!jobsCollection) throw new Error(`Collection "${COLLECTION_NAME}" not found. Available: ${collections.map(c=>c.name).join(", ")}`)
+    const fields = await jobsCollection.getFields()
+console.log(`📋 FIELD NAMES: ${JSON.stringify(fields.map(f => ({id: f.id, name: f.name})))}`)
 
     const existingItems = await jobsCollection.getItems()
     const existingSlugs = new Set(existingItems.map((item) => item.slug))
@@ -119,6 +121,7 @@ async function handleSync(res) {
 
     if (itemsToAdd.length > 0) {
       await jobsCollection.addItems(itemsToAdd)
+      
       console.log("✅ Items added to CMS!")
       const publishResult = await framer.publish()
       await framer.deploy(publishResult.deployment.id)
