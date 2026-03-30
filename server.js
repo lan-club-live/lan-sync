@@ -52,7 +52,6 @@ function rowToFieldData(row) {
     "aHuESFfLb": str(COL.jobPosterName),
     "HRE_4CNoy": str(COL.jobPosterContact),
     "DJdrc8cmG": str(COL.posterEmail),
-    "kLGiDdMTl": str(COL.whatsappYesNo),
     "FMW7QMtDS": link(COL.mailLink),
     "m4U4wxe_K": str(COL.jobLocationType),
     "nK752GHqy": link(COL.whatsappLink),
