@@ -59,10 +59,19 @@ function rowToFieldData(row) {
 
 function parseDate(raw) {
   if (!raw) return null
-  const clean = raw.split(" ")[0]
-  const [d, m, y] = clean.split("/")
-  if (!d || !m || !y) return null
-  return new Date(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`).toISOString()
+  try {
+    const clean = raw.toString().split(" ")[0].trim()
+    if (!clean) return null
+    const parts = clean.split("/")
+    if (parts.length !== 3) return null
+    const [d, m, y] = parts
+    if (!d || !m || !y || y.length < 4) return null
+    const date = new Date(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`)
+    if (isNaN(date.getTime())) return null
+    return date.toISOString()
+  } catch(e) {
+    return null
+  }
 }
 
 function sendJSON(res, status, data) {
