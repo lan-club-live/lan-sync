@@ -55,7 +55,7 @@ function rowToFieldData(row) {
     "FMW7QMtDS": link(COL.mailLink),
     "m4U4wxe_K": str(COL.jobLocationType),
     "nK752GHqy": link(COL.whatsappLink),
-    "xx8DPkMwJ": str(COL.jobAlert),
+    
   }
 }
 
