@@ -95,9 +95,11 @@ async function handleSync(res) {
     const jobsCollection = collections.find((c) => c.name.toLowerCase() === COLLECTION_NAME)
     if (!jobsCollection) throw new Error(`Collection "${COLLECTION_NAME}" not found. Available: ${collections.map(c=>c.name).join(", ")}`)
 
-    const existingItems = await jobsCollection.getItems()
-    const existingSlugs = new Set(existingItems.map((item) => item.slug))
-    console.log(`📋 ${existingSlugs.size} existing slugs`)
+    const fields = await jobsCollection.getFields()
+console.log(`📋 FIELD IDS: ${JSON.stringify(fields.map(f => f.id))}`)
+const existingItems = await jobsCollection.getItems()
+const existingSlugs = new Set(existingItems.map((item) => item.slug))
+console.log(`📋 ${existingSlugs.size} existing slugs`)
 
     const rows = await getSheetRows()
     console.log(`📊 ${rows.length} sheet rows`)
