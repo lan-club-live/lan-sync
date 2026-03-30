@@ -34,7 +34,10 @@ function rowToFieldData(row) {
   const get  = (i) => (row[i] ?? "").toString().trim()
   const str  = (i) => ({ type: "string",  value: get(i) })
   const link = (i) => ({ type: "link",    value: get(i) })
-  const bool = (i) => ({ type: "boolean", value: get(i).toLowerCase() === "yes" })
+ const bool = (i) => {
+  const v = get(i).toLowerCase()
+  return { type: "boolean", value: v === "yes" || v === "true" || v === "1" }
+}
   const date = (i) => ({ type: "date",    value: parseDate(get(i)) })
   return {
     "SMmbbXAt7": date(COL.date),
