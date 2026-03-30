@@ -1,9 +1,13 @@
+import "dotenv/config"
 import { connect } from "framer-api"
 import { google } from "googleapis"
+import http from "http"
+import fs from "fs"
 
 const FRAMER_PROJECT_URL = "https://framer.com/projects/LAN-Main-Website--RTp7QUpJk29FQK4W6e5K-6CSFl"
 const SHEET_ID           = process.env.GOOGLE_SHEET_ID
 const COLLECTION_NAME    = "jobs"
+const PORT               = process.env.PORT || 3000
 
 const COL = {
   date: 0, slug: 1, jobId: 2, jobTitle: 3, companyName: 4,
@@ -13,9 +17,20 @@ const COL = {
   created: 18, edited: 19,
 }
 
+function getServiceAccountCredentials() {
+  // Try env var first, then fall back to file
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    return JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+  }
+  if (fs.existsSync("/root/lan-sync/service-account.json")) {
+    return JSON.parse(fs.readFileSync("/root/lan-sync/service-account.json", "utf8"))
+  }
+  throw new Error("No Google service account credentials found")
+}
+
 async function getSheetRows() {
   const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON),
+    credentials: getServiceAccountCredentials(),
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   })
   const sheets = google.sheets({ version: "v4", auth })
@@ -62,69 +77,78 @@ function parseDate(raw) {
   return new Date(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`).toISOString()
 }
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" })
+function sendJSON(res, status, data) {
+  const body = JSON.stringify(data)
+  res.writeHead(status, { "Content-Type": "application/json" })
+  res.end(body)
+}
 
-  if (req.headers["x-sync-secret"] !== process.env.SYNC_SECRET) {
-    return res.status(401).json({ error: "Unauthorized" })
-  }
-
+async function handleSync(req, res) {
   let framer
   try {
     console.log("⏳ Connecting to Framer...")
     framer = await Promise.race([
       connect(FRAMER_PROJECT_URL, process.env.FRAMER_API_KEY),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("connect() timeout")), 25000)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("connect() timeout")), 30000)),
     ])
     console.log("✅ Connected!")
 
-    // Get existing slugs (just slugs, not full items — much faster)
     const collections = await framer.getCollections()
+    console.log(`📂 Collections: ${collections.map(c => c.name).join(", ")}`)
+
     const jobsCollection = collections.find((c) => c.name.toLowerCase() === COLLECTION_NAME)
     if (!jobsCollection) throw new Error(`Collection "${COLLECTION_NAME}" not found. Available: ${collections.map(c=>c.name).join(", ")}`)
 
     const existingItems = await jobsCollection.getItems()
     const existingSlugs = new Set(existingItems.map((item) => item.slug))
-    console.log(`📋 ${existingSlugs.size} existing slugs loaded`)
+    console.log(`📋 ${existingSlugs.size} existing slugs`)
 
-    // Fetch sheet rows
     const rows = await getSheetRows()
-    console.log(`📊 ${rows.length} sheet rows fetched`)
+    console.log(`📊 ${rows.length} sheet rows`)
 
-    // Only add NEW rows — skip existing ones entirely (much faster, avoids timeout)
     const itemsToAdd = []
     let skipped = 0
-
     for (const row of rows) {
       const slug  = (row[COL.slug]     ?? "").toString().trim()
       const title = (row[COL.jobTitle] ?? "").toString().trim()
       const jobId = (row[COL.jobId]    ?? "").toString().trim()
-      if (!slug || !title) { skipped++; continue }
-      if (existingSlugs.has(slug)) { skipped++; continue } // already in CMS
+      if (!slug || !title || existingSlugs.has(slug)) { skipped++; continue }
       itemsToAdd.push({ id: jobId || slug, slug, fieldData: rowToFieldData(row) })
     }
 
-    console.log(`➕ ${itemsToAdd.length} new items to add, ${skipped} skipped`)
+    console.log(`➕ ${itemsToAdd.length} new items, ${skipped} skipped`)
 
     if (itemsToAdd.length > 0) {
       await jobsCollection.addItems(itemsToAdd)
-      console.log("✅ Items added!")
-
-      // Only publish if there's something new
       const publishResult = await framer.publish()
       await framer.deploy(publishResult.deployment.id)
       console.log("🌍 Published and deployed!")
-
-      return res.status(200).json({ ok: true, created: itemsToAdd.length, skipped, deployment: publishResult.deployment.id })
+      return sendJSON(res, 200, { ok: true, created: itemsToAdd.length, skipped, deployment: publishResult.deployment.id })
     }
 
-    console.log("ℹ️ No new items — skipping publish")
-    return res.status(200).json({ ok: true, created: 0, skipped, message: "No new items" })
+    console.log("ℹ️ No new items")
+    return sendJSON(res, 200, { ok: true, created: 0, skipped, message: "No new items" })
 
   } catch (err) {
     console.error("❌ Error:", err?.message ?? String(err))
-    return res.status(500).json({ error: err?.message ?? String(err) })
+    return sendJSON(res, 500, { error: err?.message ?? String(err) })
   } finally {
     if (framer) try { await framer.disconnect() } catch(e) {}
   }
 }
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://localhost`)
+  if (url.pathname !== "/api/sync") return sendJSON(res, 404, { error: "Not found" })
+  if (req.method !== "POST") return sendJSON(res, 405, { error: "Method not allowed" })
+  if (req.headers["x-sync-secret"] !== process.env.SYNC_SECRET) return sendJSON(res, 401, { error: "Unauthorized" })
+  await handleSync(req, res)
+})
+
+server.listen(PORT, () => {
+  console.log(`🚀 LAN Jobex sync server running on port ${PORT}`)
+  console.log(`   FRAMER_API_KEY set: ${!!process.env.FRAMER_API_KEY}`)
+  console.log(`   GOOGLE_SHEET_ID set: ${!!process.env.GOOGLE_SHEET_ID}`)
+  console.log(`   SYNC_SECRET set: ${!!process.env.SYNC_SECRET}`)
+  console.log(`   SERVICE_ACCOUNT set: ${!!process.env.GOOGLE_SERVICE_ACCOUNT_JSON}`)
+})
