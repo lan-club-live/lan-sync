@@ -13,7 +13,7 @@ const COL = {
   coreSkillSet: 5, ctcOffered: 6, workexRequired: 7, jdOrApplyLink: 8,
   location: 9, jobPosterName: 10, jobPosterContact: 11, posterEmail: 12,
   whatsappYesNo: 13, mailLink: 14, jobLocationType: 15, whatsappLink: 16,
-  created: 18, edited: 19,
+  jobAlert: 16, created: 18, edited: 19,
 }
 
 async function getSheetRows() {
@@ -37,23 +37,23 @@ function rowToFieldData(row) {
   const bool = (i) => ({ type: "boolean", value: get(i).toLowerCase() === "yes" })
   const date = (i) => ({ type: "date",    value: parseDate(get(i)) })
   return {
-    "Job Title":          str(COL.jobTitle),
-    "Company Name":       str(COL.companyName),
-    "Core Skill Set":     str(COL.coreSkillSet),
-    "CTC Offered":        str(COL.ctcOffered),
-    "Workex Required":    str(COL.workexRequired),
-    "JD or Apply Link":   link(COL.jdOrApplyLink),
-    "Location":           str(COL.location),
-    "Job Poster Name":    str(COL.jobPosterName),
-    "Job Poster Contact": str(COL.jobPosterContact),
-    "Poster Email":       str(COL.posterEmail),
-    "Mail Link":          link(COL.mailLink),
-    "Job Location Type":  str(COL.jobLocationType),
-    "Whatsapp Link":      link(COL.whatsappLink),
-    "Whatsapp Opt In":    bool(COL.whatsappYesNo),
-    "Date":               date(COL.date),
-    "Job ID":             str(COL.jobId),
-    "Job Alert":          str(COL.jobAlert),
+    "SMmbbXAt7": date(COL.date),
+    "sHmMwSSt7": str(COL.jobId),
+    "CSe1Juh5B": str(COL.jobTitle),
+    "yFUOJY7Rx": str(COL.companyName),
+    "JAysq1LD8": str(COL.coreSkillSet),
+    "gdYzsdm2E": str(COL.ctcOffered),
+    "KWMj9tRPt": str(COL.workexRequired),
+    "k7bt6eJGq": link(COL.jdOrApplyLink),
+    "n0650HfzA": str(COL.location),
+    "aHuESFfLb": str(COL.jobPosterName),
+    "HRE_4CNoy": str(COL.jobPosterContact),
+    "DJdrc8cmG": str(COL.posterEmail),
+    "rUSD4m2eX": bool(COL.whatsappYesNo),
+    "FMW7QMtDS": link(COL.mailLink),
+    "m4U4wxe_K": str(COL.jobLocationType),
+    "nK752GHqy": link(COL.whatsappLink),
+    "xx8DPkMwJ": str(COL.jobAlert),
   }
 }
 
@@ -95,13 +95,9 @@ async function handleSync(res) {
     const jobsCollection = collections.find((c) => c.name.toLowerCase() === COLLECTION_NAME)
     if (!jobsCollection) throw new Error(`Collection "${COLLECTION_NAME}" not found. Available: ${collections.map(c=>c.name).join(", ")}`)
 
-    const fields = await jobsCollection.getFields()
-console.log(`📋 FIELD IDS: ${JSON.stringify(fields.map(f => f.id))}`)
-const existingItems = await jobsCollection.getItems()
-const existingSlugs = new Set(existingItems.map((item) => item.slug))
-console.log(`📋 ${existingSlugs.size} existing slugs`)
-console.log(`📋 FIELD NAMES: ${JSON.stringify(fields.map(f => ({id: f.id, name: f.name})))}`)
-    
+    const existingItems = await jobsCollection.getItems()
+    const existingSlugs = new Set(existingItems.map((item) => item.slug))
+    console.log(`📋 ${existingSlugs.size} existing slugs`)
 
     const rows = await getSheetRows()
     console.log(`📊 ${rows.length} sheet rows`)
@@ -120,6 +116,7 @@ console.log(`📋 FIELD NAMES: ${JSON.stringify(fields.map(f => ({id: f.id, name
 
     if (itemsToAdd.length > 0) {
       await jobsCollection.addItems(itemsToAdd)
+      console.log("✅ Items added to CMS!")
       const publishResult = await framer.publish()
       await framer.deploy(publishResult.deployment.id)
       console.log("🌍 Published and deployed!")
