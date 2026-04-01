@@ -123,13 +123,25 @@ console.log(`📋 FIELD NAMES: ${JSON.stringify(fields.map(f => ({id: f.id, name
     console.log(`➕ ${itemsToAdd.length} new items, ${skipped} skipped`)
 
     if (itemsToAdd.length > 0) {
-      await jobsCollection.addItems(itemsToAdd)
+      const itemsAdded = []
+for (const item of itemsToAdd) {
+  try {
+    await jobsCollection.addItems([item])
+    itemsAdded.push(item)
+  } catch(e) {
+    if (e?.message?.includes("Duplicate")) {
+      console.log(`⚠️ Skipping duplicate: ${item.slug}`)
+    } else {
+      throw e
+    }
+  }
+}
+console.log(`✅ ${itemsAdded.length} items added to CMS!`)
       
-      console.log("✅ Items added to CMS!")
       const publishResult = await framer.publish()
       await framer.deploy(publishResult.deployment.id)
       console.log("🌍 Published and deployed!")
-      return sendJSON(res, 200, { ok: true, created: itemsToAdd.length, skipped, deployment: publishResult.deployment.id })
+      return sendJSON(res, 200, { ok: true, created: itemsAdded.length, skipped, deployment: publishResult.deployment.id })
     }
 
     console.log("ℹ️ No new items — skipping publish")
