@@ -112,7 +112,11 @@ console.log(`📋 FIELD NAMES: ${JSON.stringify(fields.map(f => ({id: f.id, name
       const slug  = (row[COL.slug]     ?? "").toString().trim()
       const title = (row[COL.jobTitle] ?? "").toString().trim()
       const jobId = (row[COL.jobId]    ?? "").toString().trim()
-      if (!slug || !title || existingSlugs.has(slug)) { skipped++; continue }
+      
+      if (!slug || !title || existingSlugs.has(slug)) { 
+  console.log(`⏭️ Skipped row: slug="${slug}" title="${title}" existsInCMS=${existingSlugs.has(slug)}`)
+  skipped++; continue 
+}
       itemsToAdd.push({ slug, fieldData: rowToFieldData(row) })
     }
 
