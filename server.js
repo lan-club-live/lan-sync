@@ -9,10 +9,10 @@ const COLLECTION_NAME    = "jobs"
 const PORT               = process.env.PORT || 3000
 
 const COL = {
-  date: 0, slug: 1, jobId: 2, jobTitle: 3, companyName: 4,
-  coreSkillSet: 5, ctcOffered: 6, workexRequired: 7, jdOrApplyLink: 8,
-  location: 9, jobPosterName: 10, jobPosterContact: 11, posterEmail: 12,
-  whatsappYesNo: 13, mailLink: 14, jobLocationType: 15, whatsappLink: 16,
+  date: 0, slug: 1, jobId: 1, jobTitle: 2, companyName: 3,
+  coreSkillSet: 4, ctcOffered: 5, workexRequired: 6, jdOrApplyLink: 7,
+  location: 8, jobPosterName: 9, jobPosterContact: 10, posterEmail: 11,
+  whatsappYesNo: 12, mailLink: 13, jobLocationType: 14, whatsappLink: 15,
   jobAlert: 16, created: 18, edited: 19,
 }
 
