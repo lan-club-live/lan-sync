@@ -65,7 +65,7 @@ function parseDate(raw) {
     if (!clean) return null
     const parts = clean.split("/")
     if (parts.length !== 3) return null
-    const [d, m, y] = parts
+    const [m, d, y] = parts
     if (!d || !m || !y || y.length < 4) return null
     const date = new Date(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`)
     if (isNaN(date.getTime())) return null
