@@ -34,10 +34,7 @@ function rowToFieldData(row) {
   const get  = (i) => (row[i] ?? "").toString().trim()
   const str  = (i) => ({ type: "string",  value: get(i) })
   const link = (i) => ({ type: "link",    value: get(i) })
- const bool = (i) => {
-  const v = get(i).toLowerCase()
-  return { type: "boolean", value: v === "yes" || v === "true" || v === "1" }
-}
+const bool = (v) => ({ type: "boolean", value: v?.toString().toLowerCase() === "yes" })
   const date = (i) => ({ type: "date",    value: parseDate(get(i)) })
   return {
     "SMmbbXAt7": date(COL.date),
@@ -55,6 +52,8 @@ function rowToFieldData(row) {
     "FMW7QMtDS": link(COL.mailLink),
     "m4U4wxe_K": str(COL.jobLocationType),
     "nK752GHqy": link(COL.whatsappLink),
+    "Z6b32Y3gk": bool(COL.whatsappYesNo),
+"SSa4hqnD9": bool(COL.jobAlert),
     
   }
 }
